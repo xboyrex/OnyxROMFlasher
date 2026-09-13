@@ -1,12 +1,6 @@
-# ROM Flasher Onyx — Python runtime dependencies
+# Onyx ROM Flasher V1.2 — native Windows GUI
 #
-# Python standard-library modules used by main.py:
-#   json, os, re, shutil, subprocess, tempfile, threading, time, zipfile
+# The GUI uses Python's built-in Tkinter/ttk.
+# No pywebview, WebView2, or browser runtime is required.
 #
-# Third-party dependency:
-#   pywebview provides the desktop WebView bridge used by index.html <-> main.py.
-#
-# Install:
-#   python -m pip install -r requirements.txt
-
-pywebview>=5.0,<7
+# PyInstaller is installed by the GitHub Actions workflow.
