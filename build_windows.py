@@ -69,6 +69,7 @@ def main() -> int:
         "--clean",
         "--windowed",
         "--onedir",
+        "--contents-directory", ".",
         "--name", APP_NAME,
         "--add-data", f"{ROOT / 'bin'};bin",
         str(ROOT / "launcher.py"),
