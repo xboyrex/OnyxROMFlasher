@@ -1,35 +1,57 @@
 name: Build Windows
+
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: |
+
+      - name: Install dependencies
+        run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r requirements.txt
-      - run: |
+
+      - name: Verify PyQt5 import works
+        run: |
+          python -c "from PyQt5.QtWidgets import QApplication; print('PyQt5 OK')"
+
+      - name: Syntax checks
+        run: |
           python -m py_compile app.py
           python -m py_compile core/__init__.py core/device.py core/logger.py core/models.py core/package_validator.py core/payload.py core/workflow.py
           python -m py_compile ui/__init__.py ui/main_window.py ui/rom_tab.py ui/log_tab.py
-      - run: |
-          pyinstaller --noconfirm --onefile --windowed --name OnyxROMFlasher --add-data "tools;tools" --add-data "core;core" --add-data "ui;ui" app.py
-      - run: dir dist
-      - run: |
+
+      - name: Build OnyxROMFlasher.exe
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --name OnyxROMFlasher --collect-all PyQt5 --add-data "tools;tools" --add-data "core;core" --add-data "ui;ui" app.py
+
+      - name: Verify EXE built
+        run: dir dist
+
+      - name: Package portable folder
+        run: |
           mkdir portable
           copy dist\OnyxROMFlasher.exe portable\
           xcopy /E /I tools portable\tools
           copy README.md portable\
           copy QUICKSTART.md portable\
           copy START_HERE.txt portable\
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
         with:
           name: OnyxROMFlasher-Windows
           path: portable/
