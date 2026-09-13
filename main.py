@@ -21,6 +21,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -831,6 +832,11 @@ class OnyxApp(tk.Tk):
                 self.ui_log("=== FLASH SEQUENCE STOPPED ===", "error")
                 messagebox.showerror("Onyx ROM Flasher", message)
         self.after(0, apply)
+
+
+# Install safety hardening before the GUI/flash engine is used.
+import runtime_safety as _runtime_safety
+_runtime_safety.install(sys.modules[__name__])
 
 
 def main() -> None:

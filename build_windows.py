@@ -1,14 +1,12 @@
 """
-Onyx ROM Flasher — Windows build helper.
-
-Uses the native Tkinter GUI. The project intentionally builds onedir so the
-ADB/Fastboot/payload-dumper binaries remain visible and replaceable.
+Onyx ROM Flasher — deterministic Windows build helper.
+The repository uses one authoritative build path: this script.
 """
 
 from __future__ import annotations
+
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -19,13 +17,15 @@ APP_NAME = "OnyxROMFlasher"
 REQUIRED_FILES = [
     ROOT / "main.py",
     ROOT / "launcher.py",
-    ROOT / "requirements.txt",
+    ROOT / "runtime_safety.py",
 ]
 
 REQUIRED_TOOLS = [
     ROOT / "bin" / "adb.exe",
     ROOT / "bin" / "fastboot.exe",
     ROOT / "bin" / "payload-dumper-go.exe",
+    ROOT / "bin" / "AdbWinApi.dll",
+    ROOT / "bin" / "AdbWinUsbApi.dll",
 ]
 
 
@@ -37,15 +37,15 @@ def fail(message: str) -> int:
 def check_project() -> bool:
     missing = [str(p.relative_to(ROOT)) for p in REQUIRED_FILES if not p.exists()]
     missing_tools = [str(p.relative_to(ROOT)) for p in REQUIRED_TOOLS if not p.exists()]
-    if missing:
-        print("Missing project files:")
-        for x in missing:
-            print(f"  - {x}")
-        return False
-    if missing_tools:
-        print("Missing required bundled tools:")
-        for x in missing_tools:
-            print(f"  - {x}")
+    if missing or missing_tools:
+        if missing:
+            print("Missing project files:")
+            for item in missing:
+                print(f"  - {item}")
+        if missing_tools:
+            print("Missing bundled Windows tools:")
+            for item in missing_tools:
+                print(f"  - {item}")
         return False
     return True
 
@@ -56,7 +56,7 @@ def main() -> int:
 
     pyinstaller = shutil.which("pyinstaller")
     if not pyinstaller:
-        return fail("PyInstaller is not installed. Run: python -m pip install pyinstaller")
+        return fail("PyInstaller is not installed.")
 
     if BUILD.exists():
         shutil.rmtree(BUILD, ignore_errors=True)
@@ -76,18 +76,26 @@ def main() -> int:
     ]
 
     print("\n>", " ".join(command))
-    code = subprocess.run(command, cwd=ROOT).returncode
-    if code != 0:
+    result = subprocess.run(command, cwd=ROOT)
+    if result.returncode != 0:
         return fail("PyInstaller returned a non-zero exit code.")
 
-    exe = DIST / APP_NAME / f"{APP_NAME}.exe"
+    app_dir = DIST / APP_NAME
+    exe = app_dir / f"{APP_NAME}.exe"
     if not exe.exists():
-        return fail(f"Build finished but executable was not found: {exe}")
+        return fail(f"Executable was not created: {exe}")
+
+    if (app_dir / "_internal").exists():
+        return fail("Unexpected _internal directory detected.")
+
+    for tool in REQUIRED_TOOLS:
+        bundled = app_dir / "bin" / tool.name
+        if not bundled.exists():
+            return fail(f"Bundled tool missing from final output: {bundled}")
 
     print("\nBUILD SUCCESS")
     print(f"Output: {exe}")
-    print("\nNative Tkinter GUI build — no pywebview/WebView2 dependency.")
-    print("Test the generated executable on a clean Windows machine.")
+    print("Portable onedir layout: EXE + bin/ at the same application root.")
     return 0
 
 

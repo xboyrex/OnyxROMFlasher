@@ -1,6 +1,4 @@
-# Onyx ROM Flasher V1.2 — native Windows GUI
+# Runtime GUI:
+# Tkinter/ttk is included with the official Windows Python distribution.
 #
-# The GUI uses Python's built-in Tkinter/ttk.
-# No pywebview, WebView2, or browser runtime is required.
-#
-# PyInstaller is installed by the GitHub Actions workflow.
+# Build dependency is installed explicitly by GitHub Actions.

@@ -15,21 +15,22 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Install PyInstaller
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pyinstaller
+          python -m pip install pyinstaller==6.22.1
 
-      - name: Syntax check
+      - name: Syntax and import checks
         run: |
-          python -m py_compile main.py launcher.py build_windows.py
+          python -m py_compile main.py launcher.py runtime_safety.py build_windows.py
+          python -c "import tkinter; import main; print('Tkinter/main import OK')"
 
       - name: Build Onyx ROM Flasher
         run: python build_windows.py
@@ -37,19 +38,34 @@ jobs:
       - name: Verify build contents
         shell: pwsh
         run: |
-          $exe = "dist/OnyxROMFlasher/OnyxROMFlasher.exe"
-          if (!(Test-Path $exe)) { throw "EXE not found: $exe" }
-          foreach ($f in @("adb.exe","fastboot.exe","payload-dumper-go.exe")) {
-            $p = "dist/OnyxROMFlasher/bin/$f"
-            if (!(Test-Path $p)) { throw "Bundled tool not found: $p" }
+          $root = "dist/OnyxROMFlasher"
+          $required = @(
+            "$root/OnyxROMFlasher.exe",
+            "$root/bin/adb.exe",
+            "$root/bin/fastboot.exe",
+            "$root/bin/payload-dumper-go.exe",
+            "$root/bin/AdbWinApi.dll",
+            "$root/bin/AdbWinUsbApi.dll"
+          )
+          foreach ($p in $required) {
+            if (!(Test-Path $p)) { throw "Required build file missing: $p" }
           }
+          if (Test-Path "$root/_internal") {
+            throw "Unexpected _internal layout detected; bundled runtime layout is not portable."
+          }
+          if (Test-Path "$root/bin/Apply from ADB") {
+            throw "Unexpected junk file found in bin/."
+          }
+          Write-Host "Portable bundle verification passed."
 
       - name: Package portable folder
         shell: pwsh
-        run: Compress-Archive -Path "dist/OnyxROMFlasher/*" -DestinationPath "dist/OnyxROMFlasher-Windows.zip" -Force
+        run: |
+          Compress-Archive -Path "dist/OnyxROMFlasher/*" `
+            -DestinationPath "dist/OnyxROMFlasher-Windows.zip" -Force
 
       - name: Upload Windows build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: OnyxROMFlasher-Windows
           path: dist/OnyxROMFlasher-Windows.zip

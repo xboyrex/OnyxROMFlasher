@@ -1,69 +1,79 @@
 # Onyx ROM Flasher
 
-**V1.2 — Native Windows GUI / POCO F7 (`onyx`)**
+**V1.3 hardened native Windows GUI / POCO F7 (`onyx`)**
 
-## V1 flow
+## V1 clean-flash flow
 
-ROM ZIP → validate `payload.bin` → extract exactly five images → verify fastboot product `onyx` → flash:
+1. Select an A/B OTA ROM ZIP.
+2. Validate ZIP integrity.
+3. Require root-level `payload.bin` and `payload_properties.txt`.
+4. Check OTA metadata for `onyx` when metadata is present.
+5. Extract exactly:
+   - `boot.img`
+   - `dtbo.img`
+   - `init_boot.img`
+   - `recovery.img`
+   - `vendor_boot.img`
+6. Detect exactly one fastboot device.
+7. Query `product`, `current-slot`, and `unlocked` using that device's serial.
+8. Require product `onyx` and reject a known locked bootloader.
+9. Flash only the five whitelisted partitions.
+10. Reboot to recovery.
+11. Wait for ADB sideload mode.
+12. Run `adb -d sideload ROM.zip`.
 
-```text
-fastboot flash boot boot.img
-fastboot flash dtbo dtbo.img
-fastboot flash init_boot init_boot.img
-fastboot flash recovery recovery.img
-fastboot flash vendor_boot vendor_boot.img
-```
+The application never formats `userdata` automatically.
 
-Then:
+## Safety hardening
 
-```text
-fastboot reboot recovery
-```
-
-The user manually completes recovery actions:
-
-1. Format Data / Factory Reset if required by the ROM.
-2. Apply Update → Apply from ADB.
-3. Once recovery exposes ADB sideload mode, the tool automatically runs:
-
-```text
-adb -d sideload ROM.zip
-```
-
-## Safety boundaries
-
-- The application does **not** automatically format `userdata`.
-- Only the five V1 partitions are whitelisted.
-- Device product must be exactly `onyx` before flashing.
-- HyperOS/MiFlash-style factory flashing is not part of V1.
-- Do not disconnect the phone or interrupt flashing once it starts.
-- This software is not claimed to be 100% safe. Test on a controlled device/setup first.
+- Multiple fastboot devices are rejected; the tool will not silently choose the first device.
+- Every fastboot `getvar`, `flash`, and `reboot` operation is pinned to the verified serial.
+- A known locked bootloader is rejected before flashing.
+- OTA metadata is checked for `pre-device` / `post-device` when available.
+- A/B packages without `payload_properties.txt` are rejected before flashing.
+- Only the five V1 partitions are allowed.
+- No `fastboot -w`, `erase userdata`, or automatic factory reset is used.
+- HyperOS/MiFlash-style factory flashing is outside V1.
+- This software is not claimed to be 100% safe. Test on a controlled device first.
 
 ## Native GUI
 
-V1.2 replaces the previous pywebview/HTML interface with a native Tkinter/ttk Windows GUI.
-
-There is no `index.html`, no pywebview dependency, and no WebView2 requirement.
+Tkinter/ttk is used. There is no HTML frontend, pywebview, WebView2, or browser runtime.
 
 ## Bundled tools
 
-Place these in `bin/`:
+`bin/` must contain:
 
 - `adb.exe`
 - `fastboot.exe`
 - `payload-dumper-go.exe`
+- `AdbWinApi.dll`
+- `AdbWinUsbApi.dll`
 
-For Windows packaging, GitHub Actions builds an onedir portable folder and uploads `OnyxROMFlasher-Windows.zip`.
+## Windows build
 
-## Local build
+GitHub Actions produces `OnyxROMFlasher-Windows.zip`.
+
+The portable bundle intentionally uses:
 
 ```text
-python -m pip install pyinstaller
+OnyxROMFlasher/
+  OnyxROMFlasher.exe
+  bin/
+    adb.exe
+    fastboot.exe
+    payload-dumper-go.exe
+    AdbWinApi.dll
+    AdbWinUsbApi.dll
+```
+
+There is no `_internal/` directory.
+
+For a local Windows build:
+
+```text
+python -m pip install pyinstaller==6.22.1
 python build_windows.py
 ```
 
-Output:
-
-```text
-dist/OnyxROMFlasher/OnyxROMFlasher.exe
-```
+`build_windows.py` is the single authoritative build path.
