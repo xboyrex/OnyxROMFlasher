@@ -1,4 +1,1 @@
-# Runtime GUI:
-# Tkinter/ttk is included with the official Windows Python distribution.
-#
-# Build dependency is installed explicitly by GitHub Actions.
+PyQt5==5.15.9
