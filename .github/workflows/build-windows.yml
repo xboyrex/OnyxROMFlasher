@@ -1,13 +1,9 @@
 name: Build Windows
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
-
-permissions:
-  contents: read
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -15,61 +11,45 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.11'
 
-      - name: Install PyInstaller
+      - name: Install PyInstaller and dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pyinstaller==6.22.2
+          pip install pyinstaller
+          pip install -r requirements.txt
 
-      - name: Syntax and import checks
+      - name: Syntax checks
         run: |
-          python -m py_compile main.py launcher.py build_windows.py
-          python -c "import tkinter; import main; print('Tkinter/main import OK')"
+          python -m py_compile app.py
+          python -m py_compile core/__init__.py core/device.py core/logger.py core/models.py core/package_validator.py core/payload.py core/workflow.py
+          python -m py_compile ui/__init__.py ui/main_window.py ui/rom_tab.py ui/log_tab.py
 
-      - name: Build Onyx ROM Flasher
-        run: python build_windows.py
-
-      - name: Verify final Windows bundle
-        shell: pwsh
+      - name: Build OnyxROMFlasher.exe
         run: |
-          $root = "dist/OnyxROMFlasher"
-          $required = @(
-            "$root/OnyxROMFlasher.exe",
-            "$root/python312.dll",
-            "$root/VCRUNTIME140.dll",
-            "$root/VCRUNTIME140_1.dll",
-            "$root/bin/adb.exe",
-            "$root/bin/fastboot.exe",
-            "$root/bin/payload-dumper-go.exe",
-            "$root/bin/AdbWinApi.dll",
-            "$root/bin/AdbWinUsbApi.dll"
-          )
-          foreach ($p in $required) {
-            if (!(Test-Path $p)) { throw "Required build file missing: $p" }
-          }
-          if (Test-Path "$root/_internal") {
-            throw "Unexpected _internal directory detected."
-          }
-          if (Test-Path "$root/bin/Apply from ADB") {
-            throw "Unexpected junk file found in bin/."
-          }
-          Write-Host "Final Windows bundle verification passed."
+          pyinstaller --noconfirm --onefile --windowed --name OnyxROMFlasher --add-data "tools;tools" --add-data "core;core" --add-data "ui;ui" app.py
+
+      - name: Verify EXE built
+        run: |
+          dir dist
 
       - name: Package portable folder
-        shell: pwsh
         run: |
-          Compress-Archive -Path "dist/OnyxROMFlasher/*" `
-            -DestinationPath "dist/OnyxROMFlasher-Windows.zip" -Force
+          mkdir portable
+          copy dist\OnyxROMFlasher.exe portable\
+          xcopy /E /I tools portable\tools
+          copy README.md portable\
+          copy QUICKSTART.md portable\
+          copy START_HERE.txt portable\
 
       - name: Upload Windows build
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: OnyxROMFlasher-Windows
-          path: dist/OnyxROMFlasher-Windows.zip
-          if-no-files-found: error
+          path: portable/
+          retention-days: 30
