@@ -1,8 +1,5 @@
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-.Python
 .venv/
 venv/
 env/
@@ -13,8 +10,6 @@ logs/*.log
 logs/*.txt
 .vscode/
 .idea/
-*.swp
-.DS_Store
 .bek_flasher_work/
 !tools/
 !tools/*.exe
